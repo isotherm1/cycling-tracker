@@ -1,0 +1,17 @@
+{
+  "name": "cycling-tracker",
+  "version": "1.0.0",
+  "private": true,
+  "description": "骑行轨迹可视化 — 前后端合并单服务器部署（后端托管前端）",
+  "scripts": {
+    "install:all": "npm --prefix backend install && npm --prefix frontend install",
+    "build": "npm --prefix frontend run build",
+    "start": "npm --prefix backend start",
+    "deploy": "npm run install:all && npm run build && npm start",
+    "dev:backend": "npm --prefix backend run dev",
+    "dev:frontend": "npm --prefix frontend run dev"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
