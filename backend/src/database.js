@@ -1,18 +1,26 @@
 const { Pool } = require('pg');
 
-// 本地开发用 DATABASE_URL 或各字段；Railway 自动注入 DATABASE_URL
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  // 本地开发时若无 DATABASE_URL，用以下字段（在 .env 里配置）
-  host:     process.env.DB_HOST     || 'localhost',
-  port:     parseInt(process.env.DB_PORT || '5432'),
-  database: process.env.DB_NAME     || 'cycling_tracker',
-  user:     process.env.DB_USER     || 'postgres',
-  password: process.env.DB_PASSWORD || 'postgres',
-  // Railway 的 PostgreSQL 需要 SSL
-  ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false,
-  max: 10,
-  idleTimeoutMillis: 30000,
+// Railway 自动注入 DATABASE_URL，本地开发用各字段
+const pool = process.env.DATABASE_URL
+  ? new Pool({
+      connectionString: process.env.DATABASE_URL,
+      ssl: { rejectUnauthorized: false },
+      max: 10,
+      idleTimeoutMillis: 30000,
+    })
+  : new Pool({
+      host:     process.env.DB_HOST     || 'localhost',
+      port:     parseInt(process.env.DB_PORT || '5432'),
+      database: process.env.DB_NAME     || 'cycling_tracker',
+      user:     process.env.DB_USER     || 'postgres',
+      password: process.env.DB_PASSWORD || 'postgres',
+      ssl: false,
+      max: 10,
+      idleTimeoutMillis: 30000,
+    });
+
+pool.on('error', (err) => {
+  console.error('Unexpected DB pool error:', err.message);
 });
 
 async function initDb() {
@@ -30,22 +38,22 @@ async function initDb() {
 
     await client.query(`
       CREATE TABLE IF NOT EXISTS routes (
-        id               SERIAL PRIMARY KEY,
-        user_id          INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-        name             TEXT NOT NULL,
-        sport_type       TEXT DEFAULT 'cycling',
-        date             TEXT NOT NULL,
-        distance         REAL DEFAULT 0,
-        duration         INTEGER DEFAULT 0,
-        elevation_gain   REAL DEFAULT 0,
-        avg_speed        REAL DEFAULT 0,
-        max_speed        REAL DEFAULT 0,
-        avg_heart_rate   INTEGER,
-        max_heart_rate   INTEGER,
-        calories         INTEGER,
-        file_type        TEXT NOT NULL,
+        id                SERIAL PRIMARY KEY,
+        user_id           INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        name              TEXT NOT NULL,
+        sport_type        TEXT DEFAULT 'cycling',
+        date              TEXT NOT NULL,
+        distance          REAL DEFAULT 0,
+        duration          INTEGER DEFAULT 0,
+        elevation_gain    REAL DEFAULT 0,
+        avg_speed         REAL DEFAULT 0,
+        max_speed         REAL DEFAULT 0,
+        avg_heart_rate    INTEGER,
+        max_heart_rate    INTEGER,
+        calories          INTEGER,
+        file_type         TEXT NOT NULL,
         original_filename TEXT,
-        created_at       TIMESTAMPTZ DEFAULT NOW()
+        created_at        TIMESTAMPTZ DEFAULT NOW()
       )
     `);
 
@@ -64,8 +72,8 @@ async function initDb() {
       )
     `);
 
-    await client.query(`CREATE INDEX IF NOT EXISTS idx_tp_route   ON track_points(route_id)`);
-    await client.query(`CREATE INDEX IF NOT EXISTS idx_routes_uid ON routes(user_id)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_tp_route    ON track_points(route_id)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_routes_uid  ON routes(user_id)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_routes_date ON routes(date)`);
 
     console.log('Database initialized');
@@ -74,19 +82,16 @@ async function initDb() {
   }
 }
 
-// 查询多行
 async function dbAll(sql, params = []) {
   const result = await pool.query(sql, params);
   return result.rows;
 }
 
-// 查询单行
 async function dbGet(sql, params = []) {
   const result = await pool.query(sql, params);
   return result.rows[0] || null;
 }
 
-// 写操作，返回 { lastInsertId, changes }
 async function dbRun(sql, params = []) {
   const result = await pool.query(sql, params);
   return {
