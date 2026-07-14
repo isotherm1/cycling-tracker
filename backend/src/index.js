@@ -7,20 +7,11 @@ const { initDb } = require('./database');
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// CORS：允许本地开发和线上前端域名
-const ALLOWED_ORIGINS = [
-  'http://localhost:5173',
-  'http://localhost:3000',
-  // Vercel 部署后把你的域名加到这里，或直接用 * 通配
-  process.env.FRONTEND_URL,
-].filter(Boolean);
-
+// CORS：前端已由本服务「同源」托管，API 请求本质是同源的。
+// 这里反射请求来源（允许任意 Origin），避免因域名变化反复被拦。
+// 认证走 Authorization: Bearer 头（非 Cookie），放开来源不会带来 CSRF 风险。
 app.use(cors({
-  origin: (origin, cb) => {
-    // 允许无 origin（如 curl、移动端直接请求）或在白名单内
-    if (!origin || ALLOWED_ORIGINS.includes(origin)) cb(null, true);
-    else cb(new Error(`CORS: ${origin} not allowed`));
-  },
+  origin: true,      // 反射请求的 Origin
   credentials: true,
 }));
 
